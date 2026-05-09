@@ -63,11 +63,13 @@ npm start
 
 ## 使用示例
 
+![Hello Agent 演示](docs/demo.gif)
+
 ```text
 你: 帮我看看 package.json 里有哪些依赖
 助手:
   [调用 readFile({"path":"package.json"})]
-  [返回 312 字节]
+  [返回 487 字节]
 助手: 你的 package.json 里有以下依赖：
 - ai
 - @ai-sdk/deepseek
@@ -81,8 +83,6 @@ npm start
 ```
 
 模型会自己决定要不要调 `readFile`、调几次、什么时候开始回答——这就是 agent 的核心循环。
-
-<!-- TODO: 录一段演示 gif 放在 docs/demo.gif，然后用 ![演示](docs/demo.gif) 引用 -->
 
 ## 这 50 行做了什么
 
