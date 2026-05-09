@@ -3,10 +3,10 @@
 // 配套小册《从零打造一个 AI Agent CLI》开篇示例。
 // 50 行跑通：streamText + 一个 readFile 工具 + 多轮对话循环。
 //
-// 依赖：ai @ai-sdk/anthropic zod
+// 依赖：ai @ai-sdk/deepseek zod
 // 启动：npx tsx hello-agent.ts
 
-import { anthropic } from '@ai-sdk/anthropic'
+import { deepseek } from '@ai-sdk/deepseek'
 import { streamText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import fs from 'node:fs/promises'
@@ -34,7 +34,7 @@ async function main() {
     messages.push({ role: 'user', content: input })
 
     const result = streamText({
-      model: anthropic('claude-sonnet-4-5'),
+      model: deepseek('deepseek-chat'),
       messages,
       tools: { readFile },
       stopWhen: stepCountIs(10), // 最多 10 轮工具调用就收手

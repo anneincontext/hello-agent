@@ -25,26 +25,26 @@ npm install
 
 ### 2. 配 API Key
 
-要至少一个 Anthropic API Key（可在 [console.anthropic.com](https://console.anthropic.com) 申请）。三种配法任选其一：
+需要一个 DeepSeek API Key——国内开发者首选，注册即送 token，价格便宜，访问无障碍。在 [platform.deepseek.com](https://platform.deepseek.com) 注册后，在「API Keys」页面创建一个 key（格式 `sk-...`）。三种配法任选其一：
 
 **方式 A：永久写到用户环境变量（推荐）**
 
 ```bash
 # macOS / Linux (bash / zsh)
-echo 'export ANTHROPIC_API_KEY=sk-ant-...' >> ~/.zshrc && source ~/.zshrc
+echo 'export DEEPSEEK_API_KEY=sk-...' >> ~/.zshrc && source ~/.zshrc
 
 # Windows PowerShell（用户级，永久）
-[Environment]::SetEnvironmentVariable('ANTHROPIC_API_KEY','sk-ant-...','User')
+[Environment]::SetEnvironmentVariable('DEEPSEEK_API_KEY','sk-...','User')
 ```
 
 **方式 B：当前 shell 临时设置**
 
 ```bash
 # macOS / Linux
-export ANTHROPIC_API_KEY=sk-ant-...
+export DEEPSEEK_API_KEY=sk-...
 
 # Windows PowerShell
-$env:ANTHROPIC_API_KEY = "sk-ant-..."
+$env:DEEPSEEK_API_KEY = "sk-..."
 ```
 
 **方式 C：`.env` 文件**
@@ -104,7 +104,7 @@ npm start
 | **没有终端 UI** | 只能裸 readline；多行输入、上下移动、@ 文件补全都没有 |
 | **没有权限确认** | 如果加上 shell 工具，模型想跑命令直接就跑——没有"这操作我同意一下"这一步 |
 | **没有错误恢复** | 网络抖一下、模型返回 malformed tool input、长输出撑爆 context——任何一处崩，整个对话就死了 |
-| **只支持 Anthropic** | 改用 OpenAI / DeepSeek / Gemini 都要改代码 |
+| **只支持 DeepSeek** | 改用 Anthropic / OpenAI / Gemini 都要改代码 |
 | **只有一个工具** | 改文件、跑 shell、grep、列目录、抓网页这些都没有 |
 | **不会上下文压缩** | 多轮聊下来 messages 越积越长，几十轮就把 200K 上下文窗口塞满 |
 | **没有 prompt caching** | 每一轮系统提示词、对话历史都全量重算 token |
