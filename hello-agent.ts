@@ -3,14 +3,21 @@
 // 配套小册《从零打造一个 AI Agent CLI》开篇示例。
 // 50 行跑通：streamText + 一个 readFile 工具 + 多轮对话循环。
 //
-// 依赖：ai @ai-sdk/deepseek zod
+// 依赖：ai @ai-sdk/openai-compatible zod
 // 启动：npx tsx hello-agent.ts
 
-import { deepseek } from '@ai-sdk/deepseek'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { streamText, stepCountIs, tool } from 'ai'
 import { z } from 'zod'
 import fs from 'node:fs/promises'
 import readline from 'node:readline'
+
+// 通过 OpenAI 兼容协议接 DeepSeek——DeepSeek API 本来就是 OpenAI-compatible 的
+const deepseek = createOpenAICompatible({
+  name: 'deepseek',
+  baseURL: 'https://api.deepseek.com/v1',
+  apiKey: process.env.DEEPSEEK_API_KEY ?? '',
+})
 
 // 给模型一个工具：读取一个文件的全部内容
 const readFile = tool({
@@ -45,6 +52,7 @@ async function main() {
       if (chunk.type === 'text-delta') process.stdout.write(chunk.text)
       else if (chunk.type === 'tool-call') process.stdout.write(`\n  [调用 ${chunk.toolName}(${JSON.stringify(chunk.input)})]`)
       else if (chunk.type === 'tool-result') process.stdout.write(`\n  [返回 ${String(chunk.output).length} 字节]\n助手: `)
+      else if (chunk.type === 'error') process.stdout.write(`\n[错误] ${String((chunk as any).error)}`)
     }
 
     const { messages: newMessages } = await result.response
