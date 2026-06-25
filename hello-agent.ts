@@ -1,56 +1,93 @@
-// hello-agent.ts —— 一个最小可运行的 AI agent
-//
-// 配套小册《从零打造一个 AI Agent CLI》开篇示例。
-// 50 行跑通：streamText + 一个 readFile 工具 + 多轮对话循环。
-//
-// 依赖：ai @ai-sdk/deepseek zod
-// 启动：npx tsx hello-agent.ts
+// hello-agent.ts - a minimal runnable AI agent
 
-import { deepseek } from '@ai-sdk/deepseek'
-import { streamText, stepCountIs, tool } from 'ai'
-import { z } from 'zod'
-import fs from 'node:fs/promises'
-import readline from 'node:readline'
+import { openai } from '@ai-sdk/openai';
+import { stepCountIs, streamText, tool } from 'ai';
+import fs from 'node:fs/promises';
+import readline from 'node:readline';
+import { z } from 'zod';
 
-// 给模型一个工具：读取一个文件的全部内容
+// Tool definition: the model can decide to call this when it needs file content.
 const readFile = tool({
-  description: '读取一个文本文件，返回完整内容',
+  description: 'Read a text file and return its full contents.',
   inputSchema: z.object({
-    path: z.string().describe('要读取的文件路径'),
+    path: z.string().describe('The path to the file to read.'),
   }),
-  execute: async ({ path }) => {
-    return await fs.readFile(path, 'utf-8')
-  },
-})
+  execute: async ({ path }) => await fs.readFile(path, 'utf-8'),
+});
 
-async function main() {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-  const ask = (q: string) => new Promise<string>((r) => rl.question(q, r))
-  const messages: Array<{ role: 'user' | 'assistant'; content: any }> = []
+const system = `You are a local CLI agent running in ${process.cwd()}.
+When the user asks about a local text file, call readFile with the path they mention.
+For common filenames like package.json, use the filename directly instead of asking the user to paste it.`;
 
-  for (;;) {
-    const input = (await ask('\n你: ')).trim()
-    if (!input || input === 'exit') break
-    messages.push({ role: 'user', content: input })
-
-    const result = streamText({
-      model: deepseek('deepseek-chat'),
-      messages,
-      tools: { readFile },
-      stopWhen: stepCountIs(10), // 最多 10 轮工具调用就收手
-    })
-
-    process.stdout.write('助手: ')
-    for await (const chunk of result.fullStream) {
-      if (chunk.type === 'text-delta') process.stdout.write(chunk.text)
-      else if (chunk.type === 'tool-call') process.stdout.write(`\n  [调用 ${chunk.toolName}(${JSON.stringify(chunk.input)})]`)
-      else if (chunk.type === 'tool-result') process.stdout.write(`\n  [返回 ${String(chunk.output).length} 字节]\n助手: `)
-    }
-
-    const { messages: newMessages } = await result.response
-    messages.push(...(newMessages as any))
-  }
-  rl.close()
+// AI SDK stream chunks may expose text as either `text` or `delta`.
+function textOf(chunk: unknown) {
+  const part = chunk as { text?: unknown; delta?: unknown };
+  return typeof part.text === 'string' ? part.text : String(part.delta ?? '');
 }
 
-main().catch(console.error)
+async function main() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  const ask = (q: string) => new Promise<string>((r) => rl.question(q, r));
+
+  // Conversation history is sent back to the model on every turn.
+  const messages: Array<{ role: 'user' | 'assistant'; content: any }> = [];
+
+  console.log('Hello Agent. Type "exit" to quit.');
+
+  for (;;) {
+    const input = (await ask('\n<User> ')).trim();
+    if (!input || input === 'exit') break;
+    messages.push({ role: 'user', content: input });
+
+    // Start one agent turn: model + tools + conversation history.
+    const result = streamText({
+      model: openai('gpt-5'),
+      system,
+      tools: { readFile },
+      messages,
+      stopWhen: stepCountIs(10), // Stop after at most 10 tool-call rounds.
+    });
+
+    console.log('[model] sending messages and tools...');
+    let isAnswering = false;
+
+    // fullStream exposes every step: text, tool calls, tool results, and errors.
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === 'text-delta') {
+        if (!isAnswering) {
+          process.stdout.write('\n<Agent> ');
+          isAnswering = true;
+        }
+        process.stdout.write(textOf(chunk));
+      } else if (chunk.type === 'tool-call') {
+        if (isAnswering) process.stdout.write('\n');
+        console.log(
+          `\n[tool-call] ${chunk.toolName}(${JSON.stringify(chunk.input)})`
+        );
+        isAnswering = false;
+      } else if (chunk.type === 'tool-result') {
+        console.log(
+          `[tool-result] ${chunk.toolName} returned ${String(chunk.output).length} bytes`
+        );
+      } else if (chunk.type === 'tool-error') {
+        console.log(`[tool-error] ${chunk.toolName}: ${chunk.error}`);
+      }
+    }
+
+    if (isAnswering) process.stdout.write('\n');
+    console.log('[done]');
+
+    // Save the assistant/tool messages so the next turn has context.
+    const { messages: newMessages } = await result.response;
+    messages.push(...(newMessages as any));
+  }
+
+  rl.close();
+  if (!process.stdin.isTTY) process.stdout.write('\n');
+  console.log('[system] goodbye');
+}
+
+main().catch(console.error);
